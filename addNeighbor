@@ -1,0 +1,23 @@
+void Node::addNeighbor(Node * neighbor) { 
+	int flag=0; 
+	neighbor_list_node*my_neighbor_list; 
+	my_neighbor_list=neighbor_list_; 
+   	
+while(my_neighbor_list){ 
+if(my_neighbor_list->nodeid == neighbor->nodeid()) 
+		{ 
+		flag = 1; 
+		break; 
+		} 
+		else{ 
+my_neighbor_list=my_neighbor_list->next; 
+		} 
+	} 
+	
+	if(flag == 0){ 
+neighbor_list_node* nlistItem = (neighbor_list_node *)malloc(sizeof(neighbor_list_node)); 
+nlistItem->nodeid = neighbor->nodeid(); 
+nlistItem->next = neighbor_list_; 
+		neighbor_list_=nlistItem; 
+	} 	
+}

@@ -1,0 +1,143 @@
+void AODV::recvRequest(Packet *p)
+{
+  struct hdr_ip *ih = HDR_IP(p);
+  struct hdr_aodv_request *rq
+  HDR_AODV_REQUEST(p);
+  aodv_rt_entry *rt;
+
+Node* m_node = Node::get_node_by_address(this->addr());
+  neighbor_list_node*
+  my_mobile_neighbor_list;
+  my_mobile_neighbor_list = m_node-
+  >neighbor_list_;
+  int count = 0;
+
+  while(my_mobile_neighbor_list)
+  {
+     count++;
+     if(my_mobile_neighbor_list->next){
+my_mobile_neighbor_list=my_mobile_neigh
+bor_list->next;
+     }
+     else{
+        break;
+     }
+  }
+  
+  if (rq->rq_src == index)
+  {
+#ifdef DEBUG
+    fprintf(stderr, "%s: got my own REQUEST\n", _FUNCTION_);
+#endif // DEBUG
+    	Packet::free(p);
+    	return;
+  }
+if (id_lookup(rq->rq_src, rq->rq_bcast_id)){
+      #ifdef DEBUG
+      fprintf(stderr, "%s: discarding request\n", _FUNCTION_);
+      #endif // DEBUG
+
+      Packet::free(p);
+      return;
+  }
+
+  if (count < 45 && rq->rq_dst != index){
+     Packet::free(p);
+     return;
+ }
+  
+ id_insert(rq->rq_src, rq->rq_bcast_id);
+    
+ aodv_rt_entry *rt0; // rt0 is the reverse route
+ 
+ rt0 = rtable.rt_lookup(rq->rq_src);
+ if (rt0 == 0){ 
+      rt0 = rtable.rt_add(rq->rq_src);
+ }
+ rt0->rt_expire = max(rt0->rt_expire, (CURRENT_TIME +  
+ REV_ROUTE_LIFE));
+  
+ if ((rq->rq_src_seqno > rt0->rt_seqno) ||
+ ((rq->rq_src_seqno == rt0->rt_seqno) &&
+ (rq->rq_hop_count < rt0->rt_hops))){
+      rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
+                max(rt0->rt_expire, (CURRENT_TIME + REV_ROUTE_LIFE)));
+
+if (rt0->rt_req_timeout > 0.0)
+      {
+        rt0->rt_req_cnt = 0;
+        rt0->rt_req_timeout = 0.0;
+        rt0->rt_req_last_ttl = rq->rq_hop_count;
+        rt0->rt_expire = CURRENT_TIME + ACTIVE_ROUTE_TIMEOUT;
+      }
+  
+      assert(rt0->rt_flags == RTF_UP);
+      Packet *buffered_pkt;
+      while ((buffered_pkt = rqueue.deque(rt0->rt_dst)))
+      {
+        if (rt0 && (rt0->rt_flags == RTF_UP))
+        {
+          assert(rt0->rt_hops != INFINITY2);
+          forward(rt0, buffered_pkt, NO_DELAY);
+        }
+      }
+    }
+    rt = rtable.rt_lookup(rq->rq_dst);
+    if (rq->rq_dst == index)
+    {
+  
+  #ifdef DEBUG
+      fprintf(stderr, "%d - %s: destination sending reply\n",
+              index, _FUNCTION_);
+  #endif // DEBUG
+   
+     seqno = max(seqno, rq->rq_dst_seqno) + 1;
+      if (seqno % 2)
+        seqno++;
+sendReply(rq->rq_src,        // IP Destination
+                1,                 // Hop Count
+                index,             // Dest IP Address
+                seqno,             // Dest Sequence Num
+                MY_ROUTE_TIMEOUT,  // Lifetime
+                rq->rq_timestamp); // timestamp
+  
+      Packet::free(p);
+    }
+    else if (rt && (rt->rt_hops != INFINITY2) &&
+             (rt->rt_seqno >= rq->rq_dst_seqno))
+    {
+  
+     assert(rq->rq_dst == rt->rt_dst);
+      sendReply(rq->rq_src,
+                rt->rt_hops + 1,
+                rq->rq_dst,
+                rt->rt_seqno,
+                (u_int32_t)(rt->rt_expire - CURRENT_TIME),
+                rq->rq_timestamp);
+      rt->pc_insert(rt0->rt_nexthop); // nexthop to RREQ source
+      rt0->pc_insert(rt->rt_nexthop); // nexthop to RREQ destination
+  
+  #ifdef RREQ_GRAT_RREP
+  
+
+sendReply(rq->rq_dst,
+                rq->rq_hop_count,
+                rq->rq_src,
+                rq->rq_src_seqno,
+                (u_int32_t)(rt->rt_expire - CURRENT_TIME),
+                //             rt->rt_expire - CURRENT_TIME,
+                rq->rq_timestamp);
+  #endif
+     Packet::free(p);
+    else
+    {
+      ih->saddr() = index;
+      ih->daddr() = IP_BROADCAST;
+      rq->rq_hop_count += 1;
+        if (rt)
+        rq->rq_dst_seqno = max(rt->rt_seqno, rq->rq_dst_seqno);
+      forward((aodv_rt_entry *)0, p, DELAY);
+    }
+  
+}
+

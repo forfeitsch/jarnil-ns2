@@ -1,0 +1,27 @@
+void AODV::recvHello(Packet *p)
+{
+struct hdr_aodv_reply *rp = HDR_AODV_REPLY(p);
+  AODV_Neighbor *nb;
+
+Node *sender_node = Node::get_node_by_address(rp->rp_dst);
+Node *receiver_node = Node::get_node_by_address(index);
+
+  nb = nb_lookup(rp->rp_dst);
+  if (nb == 0)
+  {
+    sender_node->addNeighbor(receiver_node);
+    receiver_node->addNeighbor(sender_node);
+
+    nb_insert(rp->rp_dst);
+
+Node* m_node = Node::get_node_by_address(this->addr());
+neighbor_list_node*my_mobile_neighbor_list;
+my_mobile_neighbor_list = m_node->neighbor_list_;
+    int count = 0;
+   }
+   else{ 
+    nb->nb_expire = CURRENT_TIME + (1.5 *
+    ALLOWED_HELLO_LOSS * HELLO_INTERVAL);
+  }
+  Packet::free(p);
+}

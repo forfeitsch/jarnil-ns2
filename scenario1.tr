@@ -1,0 +1,3 @@
+M 0.0 nn 100 x 610 y 610 rp AODV
+M 0.0 sc scen1modif.tcl cp cbr1.txt seed 1.0
+M 0.0 prop Propagation/TwoRayGround ant Antenna/OmniAntenna
